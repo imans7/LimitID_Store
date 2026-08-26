@@ -1,15 +1,17 @@
 import { Star, Headphones, ShoppingBag } from "lucide-react";
 import { formatIDR } from "@/lib/format";
-import type { Nominal } from "@/data/denominations";
+import type { Nominal } from "@/types";
 
 export function OrderSidebar({
   selected,
   quantity,
   onSubmit,
+  submitting = false,
 }: {
   selected: Nominal | null;
   quantity: number;
   onSubmit: () => void;
+  submitting?: boolean;
 }) {
   const total = selected ? selected.price * quantity : 0;
 
@@ -57,10 +59,10 @@ export function OrderSidebar({
 
       <button
         onClick={onSubmit}
-        disabled={!selected}
+        disabled={!selected || submitting}
         className="flex w-full items-center justify-center gap-2 rounded-md bg-crimson py-3 font-display text-sm font-semibold text-white transition-colors hover:bg-crimson-bright disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <ShoppingBag size={16} /> Pesan Sekarang!
+        <ShoppingBag size={16} /> {submitting ? "Memproses..." : "Pesan Sekarang!"}
       </button>
     </div>
   );
