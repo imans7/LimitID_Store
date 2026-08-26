@@ -1,7 +1,7 @@
 import { Gem, Ticket, Zap } from "lucide-react";
 import { StepSection } from "@/components/product/StepSection";
 import { formatIDR } from "@/lib/format";
-import type { Nominal, NominalGroup } from "@/data/denominations";
+import type { Nominal, NominalGroup } from "@/types";
 
 function NominalIcon({ icon }: { icon?: Nominal["icon"] }) {
   if (icon === "pass") return <Ticket size={20} className="text-limit" />;
