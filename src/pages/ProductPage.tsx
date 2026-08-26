@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { games } from "@/data/games";
-import { getNominalGroups, type Nominal } from "@/data/denominations";
+import { fetchGame, createOrder, validatePromoCode, ApiError } from "@/lib/api";
+import { useFetch } from "@/hooks/useFetch";
+import type { Nominal } from "@/types";
 import { ProductBanner } from "@/components/product/ProductBanner";
 import { AccountForm } from "@/components/product/AccountForm";
 import { NominalPicker } from "@/components/product/NominalPicker";
@@ -13,7 +14,7 @@ import { OrderSidebar } from "@/components/product/OrderSidebar";
 
 export function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const game = games.find((g) => g.id === id);
+  const { data: game, loading, error } = useFetch(() => fetchGame(id!), [id]);
 
   const [accountId, setAccountId] = useState("");
   const [server, setServer] = useState("");
@@ -21,15 +22,22 @@ export function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [payment, setPayment] = useState<PaymentOption | null>(null);
   const [promo, setPromo] = useState("");
+  const [promoMessage, setPromoMessage] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const groups = useMemo(() => (game ? getNominalGroups(game.id) : []), [game]);
+  if (loading) {
+    return <div className="container py-24 text-center text-muted">Memuat produk…</div>;
+  }
 
-  if (!game) {
+  if (error || !game) {
     return (
       <div className="container flex flex-col items-center gap-4 py-24 text-center">
-        <p className="text-muted">Produk tidak ditemukan.</p>
+        <p className="text-muted">
+          {error ? `Gagal memuat produk: ${error}` : "Produk tidak ditemukan."}
+        </p>
         <Link to="/" className="text-crimson-bright underline">
           Kembali ke beranda
         </Link>
@@ -37,21 +45,46 @@ export function ProductPage() {
     );
   }
 
-  const handleSubmit = () => {
-    // TODO: sambungkan ke backend/payment gateway.
-    // Untuk sekarang cuma placeholder — data yang sudah terkumpul:
-    console.log({
-      game: game.id,
-      accountId,
-      server,
-      selected,
-      quantity,
-      payment,
-      promo,
-      email,
-      whatsapp,
-    });
-    alert("Order dummy terkirim — sambungkan ke backend untuk transaksi asli.");
+  const groups = game.nominalGroups ?? [];
+
+  const handleApplyPromo = async () => {
+    if (!selected || !promo) return;
+    try {
+      const subtotal = selected.price * quantity;
+      const result = await validatePromoCode(promo, subtotal);
+      setPromoMessage(
+        result.valid
+          ? `Promo diterapkan — potongan Rp ${result.discount_amount.toLocaleString("id-ID")}`
+          : (result.message ?? "Kode promo tidak valid.")
+      );
+    } catch (err) {
+      setPromoMessage(err instanceof ApiError ? err.message : "Gagal memeriksa kode promo.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selected || !payment) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const result = await createOrder({
+        game_id: game.dbId,
+        account_id: accountId,
+        server: game.hasServerField ? server : undefined,
+        nominal_id: Number(selected.id),
+        quantity,
+        payment_method_id: Number(payment.id),
+        promo_code: promo || undefined,
+        email,
+        whatsapp,
+      });
+      alert(`Order berhasil dibuat: ${result.order_number}. Total: Rp ${result.total.toLocaleString("id-ID")}`);
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Gagal membuat order.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -65,6 +98,7 @@ export function ProductPage() {
             server={server}
             onAccountIdChange={setAccountId}
             onServerChange={setServer}
+            hasServer={game.hasServerField}
           />
 
           <NominalPicker
@@ -77,7 +111,8 @@ export function ProductPage() {
 
           <PaymentPicker selectedId={payment?.id ?? null} onSelect={setPayment} />
 
-          <PromoStep code={promo} onChange={setPromo} onApply={() => {}} />
+          <PromoStep code={promo} onChange={setPromo} onApply={handleApplyPromo} />
+          {promoMessage && <p className="-mt-2 text-xs text-muted">{promoMessage}</p>}
 
           <ContactStep
             email={email}
@@ -85,6 +120,8 @@ export function ProductPage() {
             onEmailChange={setEmail}
             onWhatsappChange={setWhatsapp}
           />
+
+          {submitError && <p className="text-sm text-crimson-bright">{submitError}</p>}
 
           <div className="overflow-hidden rounded-lg border border-border">
             <div className="bg-surface2 px-4 py-3">
@@ -100,7 +137,12 @@ export function ProductPage() {
           </div>
         </div>
 
-        <OrderSidebar selected={selected} quantity={quantity} onSubmit={handleSubmit} />
+        <OrderSidebar
+          selected={selected}
+          quantity={quantity}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+        />
       </div>
     </div>
   );
