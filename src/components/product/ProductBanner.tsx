@@ -1,5 +1,5 @@
 import { ShieldCheck, MessageCircle, Zap } from "lucide-react";
-import type { GameItem } from "@/data/games";
+import type { GameItem } from "@/types";
 
 export function ProductBanner({ game }: { game: GameItem }) {
   return (
