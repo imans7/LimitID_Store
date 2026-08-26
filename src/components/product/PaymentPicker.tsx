@@ -1,53 +1,13 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { StepSection } from "@/components/product/StepSection";
+import { fetchPaymentMethods } from "@/lib/api";
+import { useFetch } from "@/hooks/useFetch";
 
 export interface PaymentOption {
   id: string;
   label: string;
 }
-
-export interface PaymentMethodGroup {
-  key: string;
-  title: string;
-  options: PaymentOption[];
-}
-
-// Nama metode ditampilkan sebagai teks/badge, bukan logo resmi provider —
-// ganti dengan logo asli (SVG dari masing-masing provider) saat integrasi.
-const groups: PaymentMethodGroup[] = [
-  {
-    key: "ewallet",
-    title: "E-Wallet",
-    options: [
-      { id: "dana", label: "DANA" },
-      { id: "shopeepay", label: "ShopeePay" },
-      { id: "linkaja", label: "LinkAja" },
-      { id: "ovo", label: "OVO" },
-      { id: "gopay", label: "GoPay" },
-    ],
-  },
-  {
-    key: "va",
-    title: "Virtual Account",
-    options: [
-      { id: "bni", label: "BNI" },
-      { id: "briva", label: "BRI" },
-      { id: "permata", label: "Permata" },
-      { id: "bca", label: "BCA" },
-      { id: "mandiri", label: "Mandiri" },
-      { id: "cimb", label: "CIMB Niaga" },
-    ],
-  },
-  {
-    key: "store",
-    title: "Convenience Store",
-    options: [
-      { id: "alfamart", label: "Alfamart" },
-      { id: "indomaret", label: "Indomaret" },
-    ],
-  },
-];
 
 export function PaymentPicker({
   selectedId,
@@ -56,12 +16,20 @@ export function PaymentPicker({
   selectedId: string | null;
   onSelect: (option: PaymentOption) => void;
 }) {
+  const { data: groups, loading, error } = useFetch(fetchPaymentMethods, []);
   const [openKey, setOpenKey] = useState<string>("ewallet");
 
   return (
     <StepSection step={4} title="Pilih Pembayaran">
+      {loading && <p className="text-sm text-muted">Memuat metode pembayaran…</p>}
+      {error && (
+        <p className="text-sm text-crimson-bright">
+          Gagal memuat metode pembayaran: {error}
+        </p>
+      )}
+
       <div className="space-y-3">
-        {groups.map((group) => {
+        {groups?.map((group) => {
           const isOpen = openKey === group.key;
           return (
             <div key={group.key} className="overflow-hidden rounded-md border border-border">
@@ -82,7 +50,7 @@ export function PaymentPicker({
                     return (
                       <button
                         key={opt.id}
-                        onClick={() => onSelect(opt)}
+                        onClick={() => onSelect({ id: opt.id, label: opt.label })}
                         className={`rounded-md border px-3 py-2 font-mono text-xs transition-colors ${
                           active
                             ? "border-crimson bg-crimson/10 text-crimson-bright"
