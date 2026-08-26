@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { games, type Category } from "@/data/games";
+import { fetchGames } from "@/lib/api";
+import { useFetch } from "@/hooks/useFetch";
+import type { Category } from "@/types";
 
 const categories: { key: Category; label: string }[] = [
   { key: "topup", label: "Top Up" },
@@ -10,7 +12,11 @@ const categories: { key: Category; label: string }[] = [
 
 export function Catalog() {
   const [active, setActive] = useState<Category>("topup");
-  const filtered = games.filter((g) => g.category === active);
+  const {
+    data: games,
+    loading,
+    error,
+  } = useFetch(() => fetchGames({ category: active }), [active]);
 
   return (
     <section className="py-14">
@@ -34,8 +40,19 @@ export function Catalog() {
           })}
         </div>
 
+        {error && (
+          <p className="mt-6 text-sm text-crimson-bright">
+            Gagal memuat data: {error}. Pastikan backend Laravel jalan di VITE_API_URL.
+          </p>
+        )}
+
         <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {filtered.map((game) => (
+          {loading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[152px] animate-pulse rounded-lg border border-border bg-surface" />
+            ))}
+
+          {games?.map((game) => (
             <Link
               key={game.id}
               id={game.id}
@@ -54,14 +71,11 @@ export function Catalog() {
                   {game.name}
                 </p>
                 <p className="truncate text-xs text-muted">{game.publisher}</p>
-                <p className="mt-2 font-mono text-xs text-limit">
-                  mulai {game.startPrice}
-                </p>
               </div>
             </Link>
           ))}
 
-          {filtered.length === 0 && (
+          {!loading && games?.length === 0 && (
             <p className="col-span-full py-10 text-center text-sm text-muted">
               Belum ada produk di kategori ini.
             </p>
